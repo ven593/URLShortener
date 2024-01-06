@@ -1,0 +1,12 @@
+<!-- index.html -->
+{% extends 'base.html'  %}
+
+{% block content %}
+<h2>URL Shortener</h2>
+<form method="post" action="{%url 'url_shortener'%}">
+    {% csrf_token %}
+    {{form.as_p}}
+    <button type="submit">Shorten URL</button>
+
+</form>
+{% endblock %}
