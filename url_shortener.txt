@@ -1,0 +1,129 @@
+Creating a URL shortener is a great Django project that involves working with models,
+ views, forms, and handling redirection. Here's a simple outline to get you started:
+
+1. Model:
+
+Create a model to store the original URL, the shortened URL, and any additional 
+information you want to track (e.g., creation date, click count).
+
+# models.py
+from django.db import models
+
+class URLShortener(models.Model):
+    original_url = models.URLField()
+    short_url = models.CharField(max_length=10, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    click_count = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f"{self.original_url} -> {self.short_url}"
+
+
+2. Form:
+
+Build a form to take the original URL input from users.
+
+# forms.py
+from django import forms
+from .models import URLShortener
+
+class URLShortenerForm(forms.ModelForm):
+    class Meta:
+        model = URLShortener
+        fields = ['original_url']
+
+
+3. View:
+
+Create views to handle the form submission, generate a short URL, and display the result.
+
+# views.py
+from django.shortcuts import render, redirect
+from .models import URLShortener
+from .forms import URLShortenerForm
+import shortuuid
+
+def url_shortener(request):
+    if request.method == 'POST':
+        form = URLShortenerForm(request.POST)
+        if form.is_valid():
+            original_url = form.cleaned_data['original_url']
+            short_url = shortuuid.uuid()[:8]  # Using shortuuid for generating short URLs
+            url_object = URLShortener(original_url=original_url, short_url=short_url)
+            url_object.save()
+            return render(request, 'shortener/result.html', {'url_object': url_object})
+    else:
+        form = URLShortenerForm()
+
+    return render(request, 'shortener/index.html', {'form': form})
+
+def redirect_original(request, short_url):
+    url_object = URLShortener.objects.get(short_url=short_url)
+    url_object.click_count += 1
+    url_object.save()
+    return redirect(url_object.original_url)
+
+4. Templates:
+
+Create templates for the index page, result page, and handle redirection.
+shortener/templates/shortener/index.html
+
+<!-- index.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+  <h2>URL Shortener</h2>
+  <form method="post" action="{% url 'url_shortener' %}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Shorten URL</button>
+  </form>
+{% endblock %}
+
+
+shortener/templates/shortener/result.html
+
+<!-- result.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+  <h2>Shortened URL</h2>
+  <p>Original URL: {{ url_object.original_url }}</p>
+  <p>Short URL: {{ request.build_absolute_uri(url_object.short_url) }}</p>
+{% endblock %}
+
+
+5. URLs:
+
+Configure URLs to map views.
+
+# urls.py
+from django.urls import path
+from .views import url_shortener, redirect_original
+
+urlpatterns = [
+    path('', url_shortener, name='url_shortener'),
+    path('<str:short_url>/', redirect_original, name='redirect_original'),
+]
+
+
+6. Settings:
+
+Include the app's URLs in your project's urls.py.
+
+# project/urls.py
+from django.contrib import admin
+from django.urls import path, include
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('', include('shortener.urls')),
+]
+
+
+Remember to run migrations after creating the model:
+
+python manage.py makemigrations
+python manage.py migrate
+
+
